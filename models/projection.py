@@ -18,7 +18,7 @@ class SparseRandomProjection:
             state for sample_without_replacement function. Defaults to None.
     """
 
-    def __init__(self, eps: float = 0.1, random_state: int | None = None) -> None:
+    def __init__(self, eps: float = 0.9, random_state: int | None = None) -> None:
         self.n_components: int
         self.sparse_random_matrix: Tensor
         self.eps = eps

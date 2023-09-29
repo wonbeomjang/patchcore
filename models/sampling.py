@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+import tqdm
 from torch import Tensor
 
 
@@ -14,7 +15,7 @@ class KCenterGreedy:
 
         center_index = torch.randint(low=0, high=embeddings.size(0), size=(1,))
 
-        for i in range(coreset_size - 1):
+        for i in tqdm.tqdm(range(coreset_size - 1), total=coreset_size - 1):
             center_index = self.greedy_coreset_seleection(center_index, embeddings)
             coreset_indexes += [center_index]
         return coreset_indexes

@@ -39,7 +39,6 @@ class PatchCore(nn.Module):
             embedding = self.generate_embeddings(x)
             batch_size, _, width, height = embedding.shape
             embedding = self.reshape_embedding(embedding)
-            embedding = self.project_embedding(embedding)
 
             if self.training:
                 self.embeddings += [embedding]
@@ -128,11 +127,19 @@ class PatchCore(nn.Module):
         return x
 
     def make_coreset(self) -> list[Tensor]:
-        self.embeddings = [torch.cat(self.embeddings, dim=0)]
-        indexes = self.sampler.select_index(self.embeddings[0])
-        self.embeddings = [self.embeddings[0][indexes]]
+        self.embeddings: Tensor = torch.cat(self.embeddings, dim=0)
+        projected_embeddings: Tensor = self.project_embedding(self.embeddings)
+        indexes = self.sampler.select_index(projected_embeddings)
+        self.embeddings: list[Tensor] = [self.embeddings[indexes]]
 
         return self.embeddings
+
+    def save_coreset(self, path: str):
+        torch.save(self.embeddings, path)
+
+    def load_coreset(self, path: str):
+        device = tuple(self.feature_extractor.parameters())[0].device
+        self.embeddings = torch.load(path, map_location=device)
 
 
 if __name__ == "__main__":
