@@ -8,7 +8,7 @@ from albumentations.pytorch import ToTensorV2
 from torch.utils.data import Dataset, DataLoader
 
 from config import DataConfig
-from utils.url import download_with_progressbar
+from util.url import download_with_progressbar
 
 
 def download_dataset(path: str = os.path.join("..", "datasets")):
@@ -45,6 +45,7 @@ class MVTecDataset(Dataset):
     def __getitem__(self, item):
         image_path = self.image_paths[item]
         image = cv2.imread(image_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = self.transforms(image=image)["image"]
 
         return image, self.defect_type
@@ -56,7 +57,6 @@ class MVTecDataset(Dataset):
 def get_train_loader(dataset_config: DataConfig):
     transform = A.Compose(
         [
-            A.ToRGB(),
             A.LongestMaxSize(dataset_config.image_size),
             A.VerticalFlip(),
             A.HorizontalFlip(),
@@ -79,7 +79,6 @@ def get_train_loader(dataset_config: DataConfig):
 def get_val_loader(dataset_config: DataConfig):
     transform = A.Compose(
         [
-            A.ToRGB(),
             A.LongestMaxSize(dataset_config.image_size),
             A.Normalize(),
             ToTensorV2(),

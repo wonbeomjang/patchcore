@@ -1,13 +1,15 @@
 import torch
 import torch.nn.functional as F
 from torch import nn, Tensor
+from torch.hub import load_state_dict_from_url
 from torchvision.models import get_model
 from torchvision.models.feature_extraction import create_feature_extractor
+from torchvision.transforms.transforms import GaussianBlur
 
 from config import PatchCoreConfig
 from models.projection import SparseRandomProjection
 from models.sampling import KCenterGreedy
-from utils.math import euclidean_dist
+from util.math import euclidean_dist
 
 
 class PatchCore(nn.Module):
@@ -21,29 +23,30 @@ class PatchCore(nn.Module):
             for i, name in enumerate(list(patch_core_config.backbone.return_node))
             if i in patch_core_config.layer_num
         }
+        backbone = torch.hub.load(patch_core_config.backbone.repo_or_dir, patch_core_config.backbone.model, weights=patch_core_config.backbone.weight)
+        self.feature_extractor: nn.Module = create_feature_extractor(backbone, return_node)
 
-        self.feature_extractor: nn.Module = create_feature_extractor(
-            get_model(patch_core_config.backbone.model_id, pretrained=True),
-            return_node,
-        )
         self.feature_pool: nn.Module = torch.nn.AvgPool2d(3, 1, 1)
+        self.blur = GaussianBlur(kernel_size=2 * int(4.0 * 4 + 0.5) + 1, sigma=4)
         self.projection = SparseRandomProjection()
-        self.sampler = KCenterGreedy()
+        self.sampler = KCenterGreedy(ratio=patch_core_config.sampling_ratio)
         self.embeddings: list[Tensor] = []
 
         self.num_neighbors = patch_core_config.num_neighbors
 
-    def forward(self, x: Tensor, *args, **kwargs) -> Tensor:
+    def forward(self, x: Tensor, *args, **kwargs) -> dict[str, Tensor]:
         with torch.no_grad():
+            batch_size, _, image_width, image_height = x.shape
+
             x: dict[str, Tensor] = self.feature_extractor(x)
             embedding = self.generate_embeddings(x)
-            batch_size, _, width, height = embedding.shape
+            _, _, width, height = embedding.shape
             embedding = self.reshape_embedding(embedding)
 
             if self.training:
                 self.embeddings += [embedding]
 
-                return embedding
+                return {"embedding": embedding}
             else:
                 patch_scores, locations = self.get_nearest_neighbors(
                     embedding, num_neighbors=1
@@ -58,7 +61,7 @@ class PatchCore(nn.Module):
                 # get anomaly map
                 # anomaly_map = self.anomaly_map_generator(patch_scores)
 
-                return pred_score
+                return {"score": pred_score}
 
     def generate_embeddings(self, x: dict[str, Tensor]) -> Tensor:
         target_shape = x[min(x.keys())].shape[-2:]
@@ -140,6 +143,11 @@ class PatchCore(nn.Module):
     def load_coreset(self, path: str):
         device = tuple(self.feature_extractor.parameters())[0].device
         self.embeddings = torch.load(path, map_location=device)
+
+    def generate_anomaly_map(self, patch_scores: Tensor, image_width: int, image_height: int) -> Tensor:
+        patch_scores = F.interpolate(patch_scores, (image_width, image_height))
+        patch_scores = self.blur(patch_scores)
+        return patch_scores
 
 
 if __name__ == "__main__":
