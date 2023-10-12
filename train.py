@@ -3,7 +3,8 @@ import os
 
 import torch
 from torch import Tensor
-from tqdm import tqdm
+import sklearn
+
 from config import DataConfig
 from data.datasets import get_train_loader, get_val_loader
 from model import PatchCore
@@ -12,37 +13,38 @@ from model import PatchCore
 class ThresholdAdaptor:
     def __init__(self, not_defect_name: str = "good"):
         self.scores: list[float] = []
-        self.is_defect: list[bool] = []
-        self.not_defect_name : str = not_defect_name
+        self.is_normal: list[int] = []
+        self.not_defect_name: str = not_defect_name
 
     def __call__(self, score: list[float] | Tensor, defect_types: list[str], *args, **kwargs):
         if isinstance(score, Tensor):
             score = score.cpu().tolist()
         self.scores += score
-        self.is_defect += [defect_type == self.not_defect_name for defect_type in defect_types]
+        self.is_normal += [int(defect_type == self.not_defect_name) for defect_type in defect_types]
 
     def calc_threshold(self):
-        assert len(self.scores) == len(self.is_defect)
+        assert len(self.scores) == len(self.is_normal)
 
-        score_map = sorted(list(zip(self.scores, self.is_defect)))
-        accuracy = 0
-        num_correct = 0
-        threshold = 0
+        score_map = sorted(list(zip(self.scores, self.is_normal)))
+        self.scores, self.is_normal = list(map(list, zip(*score_map)))
 
-        for i, (score, is_defect) in enumerate(score_map):
-            num_correct += is_defect
-            acc = num_correct / (i + 1)
+        max_f1_score = 0
+        target_index = 0
+        for i in range(len(self.scores)):
+            normal_preds = [1] * i + [0] * (len(self.scores) - i)
+            f1_score = sklearn.metrics.f1_score(self.is_normal, normal_preds)
 
-            if accuracy < acc:
-                threshold = score
-                accuracy = acc
-
+            if f1_score > max_f1_score:
+                max_f1_score = f1_score
+                target_index = i
+                
+        f1_score = self.scores[target_index]
         self.reset()
-        return threshold, accuracy
+        return f1_score, max_f1_score
 
     def reset(self):
         self.scores: list[float] = []
-        self.is_defect: list[bool] = []
+        self.is_normal: list[bool] = []
 
 
 def calc(dataloader, threshold_adaptor):
@@ -56,7 +58,7 @@ def calc(dataloader, threshold_adaptor):
 if __name__ == "__main__":
     args = argparse.ArgumentParser()
 
-    args.add_argument("--category", type=str)
+    args.add_argument("--category", type=str, default="bottle")
 
     config = args.parse_args()
 
@@ -79,11 +81,11 @@ if __name__ == "__main__":
     model.eval()
 
     threshold_adaptor = ThresholdAdaptor()
-    calc(dataloader, threshold_adaptor)
+    # calc(dataloader, threshold_adaptor)
 
     for defect_type in os.listdir(os.path.join(dataset_config.base_dir, dataset_config.category, "test")):
         dataset_config.defect_type = defect_type
         calc(get_val_loader(dataset_config), threshold_adaptor)
 
-    threshold, accuracy = threshold_adaptor.calc_threshold()
-    print(f"Category: {dataset_config.category} Accuracy: {accuracy}, Threshold: {threshold}")
+    threshold, f1_score = threshold_adaptor.calc_threshold()
+    print(f"Category: {dataset_config.category} F1 Score: {f1_score}, Threshold: {threshold}")
