@@ -8,9 +8,13 @@ from torchvision.models import resnet
 
 @dataclasses.dataclass
 class Backbone:
-    model: str = "dino_resnet50"
-    repo_or_dir: str = "facebookresearch/dino:main"
-    weight: WeightsEnum = resnet.ResNet50_Weights.IMAGENET1K_V1
+    # model: str = "dino_resnet50"
+    # repo_or_dir: str = "facebookresearch/dino:main"
+    #
+    # model: str = "resnet50"
+    model: str = "wide_resnet50_2"
+    repo_or_dir: str = "pytorch/vision:v0.10.0"
+
     return_node: list[str] = dataclasses.field(
         default_factory=lambda: [
             "conv1",

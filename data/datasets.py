@@ -60,7 +60,7 @@ def get_train_loader(dataset_config: DataConfig):
             A.LongestMaxSize(dataset_config.image_size),
             A.VerticalFlip(),
             A.HorizontalFlip(),
-            A.Normalize(),
+            A.Normalize(always_apply=True),
             ToTensorV2(),
         ]
     )
@@ -80,7 +80,7 @@ def get_val_loader(dataset_config: DataConfig):
     transform = A.Compose(
         [
             A.LongestMaxSize(dataset_config.image_size),
-            A.Normalize(),
+            A.Normalize(always_apply=True),
             ToTensorV2(),
         ]
     )

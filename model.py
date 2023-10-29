@@ -23,7 +23,7 @@ class PatchCore(nn.Module):
             for i, name in enumerate(list(patch_core_config.backbone.return_node))
             if i in patch_core_config.layer_num
         }
-        backbone = torch.hub.load(patch_core_config.backbone.repo_or_dir, patch_core_config.backbone.model, weights=patch_core_config.backbone.weight)
+        backbone = torch.hub.load(patch_core_config.backbone.repo_or_dir, patch_core_config.backbone.model, pretrained=True)
         self.feature_extractor: nn.Module = create_feature_extractor(backbone, return_node)
 
         self.feature_pool: nn.Module = torch.nn.AvgPool2d(3, 1, 1)

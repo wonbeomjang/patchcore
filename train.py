@@ -33,11 +33,10 @@ class ThresholdAdaptor:
         for i in range(len(self.scores)):
             normal_preds = [1] * i + [0] * (len(self.scores) - i)
             f1_score = sklearn.metrics.f1_score(self.is_normal, normal_preds)
-
             if f1_score > max_f1_score:
                 max_f1_score = f1_score
                 target_index = i
-                
+
         f1_score = self.scores[target_index]
         self.reset()
         return f1_score, max_f1_score
@@ -47,7 +46,7 @@ class ThresholdAdaptor:
         self.is_normal: list[bool] = []
 
 
-def calc(dataloader, threshold_adaptor):
+def calc(dataloader, threshold_adaptor, model, device):
     for i, (image, defect_type) in enumerate(dataloader):
         image = image.to(device)
         res = model(image)
@@ -55,17 +54,8 @@ def calc(dataloader, threshold_adaptor):
         threshold_adaptor(score, defect_type)
 
 
-if __name__ == "__main__":
-    args = argparse.ArgumentParser()
-
-    args.add_argument("--category", type=str, default="bottle")
-
-    config = args.parse_args()
-
+def train(dataset_config: DataConfig):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    dataset_config = DataConfig()
-    dataset_config.category = config.category
 
     print(f"Start {dataset_config.category}")
     dataloader = get_train_loader(dataset_config)
@@ -81,11 +71,29 @@ if __name__ == "__main__":
     model.eval()
 
     threshold_adaptor = ThresholdAdaptor()
-    # calc(dataloader, threshold_adaptor)
 
     for defect_type in os.listdir(os.path.join(dataset_config.base_dir, dataset_config.category, "test")):
         dataset_config.defect_type = defect_type
-        calc(get_val_loader(dataset_config), threshold_adaptor)
+        calc(get_val_loader(dataset_config), threshold_adaptor, model, device)
 
     threshold, f1_score = threshold_adaptor.calc_threshold()
     print(f"Category: {dataset_config.category} F1 Score: {f1_score}, Threshold: {threshold}")
+
+    return f1_score, threshold
+
+
+if __name__ == "__main__":
+    dataset_config = DataConfig()
+    f1_score_sum = 0
+    cnt = 0
+
+    for category in os.listdir(dataset_config.base_dir):
+        if os.path.isfile(os.path.join(dataset_config.base_dir, category)):
+            continue
+        dataset_config.category = category
+        f1_score, _ = train(dataset_config)
+        f1_score_sum += f1_score
+        cnt += 1
+
+    print(f"Total F1 Score: {f1_score_sum / cnt}")
+
