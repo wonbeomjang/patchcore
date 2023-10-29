@@ -57,10 +57,9 @@ class MVTecDataset(Dataset):
 def get_train_loader(dataset_config: DataConfig):
     transform = A.Compose(
         [
-            A.LongestMaxSize(dataset_config.image_size),
-            A.VerticalFlip(),
-            A.HorizontalFlip(),
-            A.Normalize(always_apply=True),
+            A.Resize(height=dataset_config.image_size, width=dataset_config.image_size, always_apply=True),
+            A.CenterCrop(height=dataset_config.center_crop, width=dataset_config.center_crop, always_apply=True),
+            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensorV2(),
         ]
     )
@@ -79,8 +78,9 @@ def get_train_loader(dataset_config: DataConfig):
 def get_val_loader(dataset_config: DataConfig):
     transform = A.Compose(
         [
-            A.LongestMaxSize(dataset_config.image_size),
-            A.Normalize(always_apply=True),
+            A.Resize(height=dataset_config.image_size, width=dataset_config.image_size, always_apply=True),
+            A.CenterCrop(height=dataset_config.center_crop, width=dataset_config.center_crop, always_apply=True),
+            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ToTensorV2(),
         ]
     )

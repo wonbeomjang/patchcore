@@ -7,7 +7,7 @@ import sklearn
 
 from config import DataConfig
 from data.datasets import get_train_loader, get_val_loader
-from model import PatchCore
+from models.patchcore import PatchCore
 
 
 class ThresholdAdaptor:
@@ -66,8 +66,8 @@ def train(dataset_config: DataConfig):
         model(image)
 
     model.make_coreset()
-    model.save_coreset(f"{dataset_config.category}.pt")
-    model.load_coreset(f"{dataset_config.category}.pt")
+    # model.save_coreset(f"{dataset_config.category}.pt")
+    # model.load_coreset(f"{dataset_config.category}.pt")
     model.eval()
 
     threshold_adaptor = ThresholdAdaptor()

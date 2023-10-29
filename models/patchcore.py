@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from anomalib.models.components import FeatureExtractor
 from torch import nn, Tensor
 from torch.hub import load_state_dict_from_url
 from torchvision.models import get_model
@@ -9,6 +10,7 @@ from torchvision.transforms.transforms import GaussianBlur
 from config import PatchCoreConfig
 from models.projection import SparseRandomProjection
 from models.sampling import KCenterGreedy
+from util.layers import TimmFeatureExtractor
 from util.math import euclidean_dist
 
 
@@ -17,14 +19,7 @@ class PatchCore(nn.Module):
         self, patch_core_config: PatchCoreConfig = PatchCoreConfig(), *args, **kwargs
     ):
         super(PatchCore, self).__init__(*args, **kwargs)
-
-        return_node: dict[str, str] = {
-            name: str(i)
-            for i, name in enumerate(list(patch_core_config.backbone.return_node))
-            if i in patch_core_config.layer_num
-        }
-        backbone = torch.hub.load(patch_core_config.backbone.repo_or_dir, patch_core_config.backbone.model, pretrained=True)
-        self.feature_extractor: nn.Module = create_feature_extractor(backbone, return_node)
+        self.feature_extractor = TimmFeatureExtractor(backbone=patch_core_config.backbone.model, layers=patch_core_config.backbone.return_layer, weight_url=patch_core_config.backbone.weight_url)
 
         self.feature_pool: nn.Module = torch.nn.AvgPool2d(3, 1, 1)
         self.blur = GaussianBlur(kernel_size=2 * int(4.0 * 4 + 0.5) + 1, sigma=4)
@@ -38,7 +33,8 @@ class PatchCore(nn.Module):
         with torch.no_grad():
             batch_size, _, image_width, image_height = x.shape
 
-            x: dict[str, Tensor] = self.feature_extractor(x)
+            features = self.feature_extractor(x)
+            x: dict[str, Tensor] = {layer: self.feature_pool(feature) for layer, feature in features.items()}
             embedding = self.generate_embeddings(x)
             _, _, width, height = embedding.shape
             embedding = self.reshape_embedding(embedding)
@@ -66,7 +62,6 @@ class PatchCore(nn.Module):
     def generate_embeddings(self, x: dict[str, Tensor]) -> Tensor:
         target_shape = x[min(x.keys())].shape[-2:]
         for k in x.keys():
-            x[k] = self.feature_pool(x[k])
             x[k] = F.interpolate(x[k], size=target_shape, mode="bilinear")
         x: Tensor = torch.cat(list(x.values()), dim=1)
         return x

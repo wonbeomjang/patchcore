@@ -1,38 +1,19 @@
-import copy
 import dataclasses
 import os.path
-
-from torchvision.models import WeightsEnum
-from torchvision.models import resnet
 
 
 @dataclasses.dataclass
 class Backbone:
-    # model: str = "dino_resnet50"
-    # repo_or_dir: str = "facebookresearch/dino:main"
-    #
-    # model: str = "resnet50"
     model: str = "wide_resnet50_2"
-    repo_or_dir: str = "pytorch/vision:v0.10.0"
-
-    return_node: list[str] = dataclasses.field(
-        default_factory=lambda: [
-            "conv1",
-            "layer1",
-            "layer2",
-            "layer3",
-            "layer4",
-            "avgpool",
-        ]
-    )
+    weight_url: str | None = None
+    return_layer: list[str] = dataclasses.field(default_factory=lambda: ["layer2", "layer3"])
 
 
 @dataclasses.dataclass
 class PatchCoreConfig:
     backbone: Backbone = Backbone()
-    layer_num: list[int] = dataclasses.field(default_factory=lambda: [2, 3])
     num_neighbors: int = 9
-    sampling_ratio: float = 0.01
+    sampling_ratio: float = 0.1
 
 
 @dataclasses.dataclass
@@ -41,5 +22,6 @@ class DataConfig:
     category: str = "bottle"
     defect_type: str = "broken_large"
     image_size: int = 256
-    batch_size: int = 64
-    num_workers: int = 8
+    center_crop: int = 224
+    batch_size: int = 32
+    num_workers: int = 16
