@@ -16,6 +16,7 @@ class TimmFeatureExtractor(nn.Module):
             exportable=True,
             out_indices=self.idx,
         )
+        self.feature_pool: nn.Module = torch.nn.AvgPool2d(3, 1, 1)
 
         if weight_url is not None:
             state_dict = torch.hub.load_state_dict_from_url(weight_url)
@@ -49,6 +50,12 @@ class TimmFeatureExtractor(nn.Module):
 
     def forward(self, inputs: Tensor) -> dict[str, Tensor]:
         self.feature_extractor.eval()
+        self.feature_pool.eval()
         with torch.no_grad():
-            features = dict(zip(self.layers, self.feature_extractor(inputs)))
+            features = dict(
+                zip(
+                    self.layers,
+                    map(self.feature_pool, (self.feature_extractor(inputs))),
+                )
+            )
         return features

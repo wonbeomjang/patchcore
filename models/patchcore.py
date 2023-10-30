@@ -21,7 +21,6 @@ class PatchCore(nn.Module):
             weight_url=patch_core_config.backbone.weight_url,
         )
 
-        self.feature_pool: nn.Module = torch.nn.AvgPool2d(3, 1, 1)
         self.blur = GaussianBlur(kernel_size=2 * int(4.0 * 4 + 0.5) + 1, sigma=4)
         self.projection = SparseRandomProjection()
         self.sampler = KCenterGreedy(ratio=patch_core_config.sampling_ratio)
@@ -35,7 +34,7 @@ class PatchCore(nn.Module):
 
             features = self.feature_extractor(x)
             x: dict[str, Tensor] = {
-                layer: self.feature_pool(feature) for layer, feature in features.items()
+                layer: feature for layer, feature in features.items()
             }
             embedding = self.generate_embeddings(x)
             _, _, width, height = embedding.shape
