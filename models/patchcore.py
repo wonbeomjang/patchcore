@@ -1,10 +1,6 @@
 import torch
 import torch.nn.functional as F
-from anomalib.models.components import FeatureExtractor
 from torch import nn, Tensor
-from torch.hub import load_state_dict_from_url
-from torchvision.models import get_model
-from torchvision.models.feature_extraction import create_feature_extractor
 from torchvision.transforms.transforms import GaussianBlur
 
 from config import PatchCoreConfig
@@ -19,7 +15,11 @@ class PatchCore(nn.Module):
         self, patch_core_config: PatchCoreConfig = PatchCoreConfig(), *args, **kwargs
     ):
         super(PatchCore, self).__init__(*args, **kwargs)
-        self.feature_extractor = TimmFeatureExtractor(backbone=patch_core_config.backbone.model, layers=patch_core_config.backbone.return_layer, weight_url=patch_core_config.backbone.weight_url)
+        self.feature_extractor = TimmFeatureExtractor(
+            backbone=patch_core_config.backbone.model,
+            layers=patch_core_config.backbone.return_layer,
+            weight_url=patch_core_config.backbone.weight_url,
+        )
 
         self.feature_pool: nn.Module = torch.nn.AvgPool2d(3, 1, 1)
         self.blur = GaussianBlur(kernel_size=2 * int(4.0 * 4 + 0.5) + 1, sigma=4)
@@ -34,7 +34,9 @@ class PatchCore(nn.Module):
             batch_size, _, image_width, image_height = x.shape
 
             features = self.feature_extractor(x)
-            x: dict[str, Tensor] = {layer: self.feature_pool(feature) for layer, feature in features.items()}
+            x: dict[str, Tensor] = {
+                layer: self.feature_pool(feature) for layer, feature in features.items()
+            }
             embedding = self.generate_embeddings(x)
             _, _, width, height = embedding.shape
             embedding = self.reshape_embedding(embedding)
@@ -139,7 +141,9 @@ class PatchCore(nn.Module):
         device = tuple(self.feature_extractor.parameters())[0].device
         self.embeddings = torch.load(path, map_location=device)
 
-    def generate_anomaly_map(self, patch_scores: Tensor, image_width: int, image_height: int) -> Tensor:
+    def generate_anomaly_map(
+        self, patch_scores: Tensor, image_width: int, image_height: int
+    ) -> Tensor:
         patch_scores = F.interpolate(patch_scores, (image_width, image_height))
         patch_scores = self.blur(patch_scores)
         return patch_scores

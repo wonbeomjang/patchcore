@@ -39,7 +39,9 @@ class TimmFeatureExtractor(nn.Module):
         )
         for i in self.layers:
             try:
-                idx.append(list(dict(features.named_children()).keys()).index(i) - offset)
+                idx.append(
+                    list(dict(features.named_children()).keys()).index(i) - offset
+                )
             except ValueError:
                 self.layers.remove(i)
 
@@ -50,4 +52,3 @@ class TimmFeatureExtractor(nn.Module):
         with torch.no_grad():
             features = dict(zip(self.layers, self.feature_extractor(inputs)))
         return features
-
