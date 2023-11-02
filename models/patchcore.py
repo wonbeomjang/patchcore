@@ -146,22 +146,3 @@ class PatchCore(nn.Module):
         patch_scores = F.interpolate(patch_scores, (image_width, image_height))
         patch_scores = self.blur(patch_scores)
         return patch_scores
-
-
-if __name__ == "__main__":
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    model = PatchCore().to(device)
-    image = torch.randn((1, 3, 224, 224)).to(device)
-
-    model(image)
-    model(image)
-    model(image)
-    model(image)
-    model.make_coreset()
-
-    model.eval()
-    res = model(image)
-    print(model(image))
-    print(model(image))
-    print(model(image))
-    print(model(image))

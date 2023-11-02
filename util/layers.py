@@ -19,8 +19,13 @@ class TimmFeatureExtractor(nn.Module):
         self.feature_pool: nn.Module = torch.nn.AvgPool2d(3, 1, 1)
 
         if weight_url is not None:
+            target_state_dict = self.feature_extractor.state_dict()
             state_dict = torch.hub.load_state_dict_from_url(weight_url)
-            self.feature_extractor.load_state_dict(state_dict)
+
+            for key in target_state_dict.keys():
+                target_state_dict[key] = state_dict[key]
+
+            self.feature_extractor.load_state_dict(target_state_dict)
 
     def _map_layer_to_idx(self, offset: int = 3) -> list[int]:
         """Maps set of layer names to indices of model.
